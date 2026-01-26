@@ -1,4 +1,4 @@
-package com.example.primitivela // <--- ADD THIS LINE
+package com.example.primitivela
 
 import android.util.Log
 import androidx.annotation.OptIn
@@ -13,10 +13,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.camera.core.ImageAnalysis
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
@@ -29,54 +30,61 @@ fun ScannerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
 
-    // State to hold the result and pause scanning
     var lastScannedValue by remember { mutableStateOf<String?>(null) }
     var isPaused by remember { mutableStateOf(false) }
 
+    // FORCE ML KIT TO LOOK FOR ALL BARCODE TYPES (1D IDs & QR)
+    val options = remember {
+        BarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
+            .build()
+    }
+    val scanner = remember { BarcodeScanning.getClient(options) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // 1. Camera Viewfinder
-        if (!isPaused) {
-            AndroidView(
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx)
-                    val cameraProviderFuture = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(ctx)
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx)
+                val cameraProviderFuture = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(ctx)
 
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build().also {
-                            it.setSurfaceProvider(previewView.surfaceProvider)
-                        }
+                cameraProviderFuture.addListener({
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
 
-                        val scanner = BarcodeScanning.getClient()
-                        val imageAnalysis = ImageAnalysis.Builder()
-                            .setBackpressureStrategy(1) // 1 is the internal value for "Keep only instant image"
-                            .build()
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        // Using '1' directly fixes the "Unresolved reference" red line
+                        .setBackpressureStrategy(1)
+                        .build()
 
-                        imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                    imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                        if (!isPaused) {
                             processImageProxy(scanner, imageProxy) { result ->
-                                if (result.isNotEmpty() && !isPaused) {
-                                    lastScannedValue = result
-                                    isPaused = true // Pause scanning once a code is found
-                                }
+                                lastScannedValue = result
+                                isPaused = true
                             }
+                        } else {
+                            imageProxy.close()
                         }
+                    }
 
-                        try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
-                                lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis
-                            )
-                        } catch (e: Exception) {
-                            Log.e("Scanner", "Binding failed", e)
-                        }
-                    }, androidx.core.content.ContextCompat.getMainExecutor(ctx))
-                    previewView
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+                    try {
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis
+                        )
+                    } catch (e: Exception) {
+                        Log.e("Scanner", "Binding failed", e)
+                    }
+                }, androidx.core.content.ContextCompat.getMainExecutor(ctx))
+                previewView
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
-        // 2. Overlay UI (Confirmation Buttons)
+        // 2. Result Overlay (Confirmation)
         if (isPaused && lastScannedValue != null) {
             Box(
                 modifier = Modifier
@@ -99,14 +107,12 @@ fun ScannerScreen(
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            // RETRY: Just unpause the camera
                             OutlinedButton(onClick = {
                                 lastScannedValue = null
                                 isPaused = false
                             }) {
                                 Text("Retry")
                             }
-                            // NEXT: Save and then unpause
                             Button(onClick = {
                                 onIdScanned(lastScannedValue!!)
                                 lastScannedValue = null
@@ -120,17 +126,23 @@ fun ScannerScreen(
             }
         }
 
-        // Close button to go back to Dashboard
+        // 3. Back Button
         IconButton(
             onClick = onCancel,
             modifier = Modifier.padding(top = 40.dp, start = 16.dp)
         ) {
-            Text("Back", color = Color.White)
+            Surface(color = Color.Black.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
+                Text(
+                    " Back ",
+                    color = Color.White,
+                    modifier = Modifier.padding(4.dp),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
         }
     }
 }
 
-// 3. Image Analysis Logic (The "Brain")
 @OptIn(ExperimentalGetImage::class)
 private fun processImageProxy(
     scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
@@ -143,11 +155,13 @@ private fun processImageProxy(
         scanner.process(image)
             .addOnSuccessListener { barcodes ->
                 for (barcode in barcodes) {
-                    barcode.rawValue?.let { onResult(it) }
+                    barcode.rawValue?.let {
+                        if (it.isNotBlank()) onResult(it)
+                    }
                 }
             }
             .addOnCompleteListener {
-                imageProxy.close() // ALWAYS close the frame to prevent freezing
+                imageProxy.close()
             }
     } else {
         imageProxy.close()

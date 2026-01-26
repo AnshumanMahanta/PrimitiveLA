@@ -1,4 +1,4 @@
-package com.example.primitivela // 1. Add your package name
+package com.example.primitivela
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,18 +17,15 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.*
 
-// 2. This is the crucial import to connect your data classes
-import com.example.primitivela.Event
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboard(
     events: List<Event>,
     onCreateEvent: (String) -> Unit,
     onEventClick: (Event) -> Unit,
-    onExportClick: (Event, String) -> Unit
+    onExportClick: (Event, String) -> Unit,
+    onDeleteClick: (Event) -> Unit // Added for deletion
 ) {
-    // ... rest of your code stays exactly the same
     var showDialog by remember { mutableStateOf(false) }
     var eventName by remember { mutableStateOf("") }
 
@@ -56,7 +54,8 @@ fun MainDashboard(
                     EventItem(
                         event = event,
                         onClick = { onEventClick(event) },
-                        onExport = { format -> onExportClick(event, format) }
+                        onExport = { format -> onExportClick(event, format) },
+                        onDelete = { onDeleteClick(event) } // Added
                     )
                 }
             }
@@ -96,10 +95,11 @@ fun MainDashboard(
 fun EventItem(
     event: Event,
     onClick: () -> Unit,
-    onExport: (String) -> Unit
+    onExport: (String) -> Unit,
+    onDelete: () -> Unit // Added
 ) {
     val date = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(event.createdAt))
-    var showExportMenu by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -117,27 +117,29 @@ fun EventItem(
                 Text(text = "Created: $date", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
 
-            // Export Button
             Box {
-                IconButton(onClick = { showExportMenu = true }) {
-                    Icon(Icons.Default.Share, contentDescription = "Export")
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Options")
                 }
                 DropdownMenu(
-                    expanded = showExportMenu,
-                    onDismissRequest = { showExportMenu = false }
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Export as .CSV") },
-                        onClick = {
-                            onExport("csv")
-                            showExportMenu = false
-                        }
+                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                        text = { Text("Export .CSV") },
+                        onClick = { onExport("csv"); showMenu = false }
                     )
                     DropdownMenuItem(
-                        text = { Text("Export as .TXT") },
+                        text = { Text("Export .TXT") },
+                        onClick = { onExport("txt"); showMenu = false }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Delete", color = Color.Red) },
                         onClick = {
-                            onExport("txt")
-                            showExportMenu = false
+                            onDelete()
+                            showMenu = false
                         }
                     )
                 }

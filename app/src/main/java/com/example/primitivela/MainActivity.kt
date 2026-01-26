@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableIntStateOf(0) }
                 var activeEventId by remember { mutableIntStateOf(-1) }
 
-                // Watch the database for changes
+                // Watch the database for changes automatically
                 val events by dao.getAllEvents().collectAsState(initial = emptyList())
 
                 if (currentScreen == 0) {
@@ -63,6 +63,13 @@ class MainActivity : ComponentActivity() {
                                     Toast.makeText(this@MainActivity, "No scans to export!", Toast.LENGTH_SHORT).show()
                                 }
                             }
+                        },
+                        onDeleteClick = { event ->
+                            // Necessary change: Implementing the delete logic
+                            lifecycleScope.launch {
+                                dao.deleteEvent(event)
+                                Toast.makeText(this@MainActivity, "Event deleted", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     )
                 } else {
@@ -75,6 +82,7 @@ class MainActivity : ComponentActivity() {
                         onCancel = { currentScreen = 0 }
                     )
 
+                    // Hardware back button returns to Dashboard
                     BackHandler { currentScreen = 0 }
                 }
             }
@@ -82,7 +90,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Global helper function for sharing files
+/**
+ * Helper function to handle the Android Share Sheet for CSV/TXT exports.
+ */
 fun shareEventData(context: Context, eventName: String, records: List<AttendanceRecord>, format: String) {
     val fileName = "${eventName.replace(" ", "_")}.$format"
     val file = File(context.cacheDir, fileName)
