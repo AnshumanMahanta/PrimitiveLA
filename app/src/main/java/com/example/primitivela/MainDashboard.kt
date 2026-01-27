@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.*
@@ -24,7 +26,7 @@ fun MainDashboard(
     onCreateEvent: (String) -> Unit,
     onEventClick: (Event) -> Unit,
     onExportClick: (Event, String) -> Unit,
-    onDeleteClick: (Event) -> Unit // Added for deletion
+    onDeleteClick: (Event) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var eventName by remember { mutableStateOf("") }
@@ -44,8 +46,14 @@ fun MainDashboard(
             }
         }
     ) { padding ->
+
         if (events.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 Text("No events yet. Tap + to start.", color = Color.Gray)
             }
         } else {
@@ -55,7 +63,7 @@ fun MainDashboard(
                         event = event,
                         onClick = { onEventClick(event) },
                         onExport = { format -> onExportClick(event, format) },
-                        onDelete = { onDeleteClick(event) } // Added
+                        onDelete = { onDeleteClick(event) }
                     )
                 }
             }
@@ -81,10 +89,14 @@ fun MainDashboard(
                             eventName = ""
                             showDialog = false
                         }
-                    }) { Text("Start Scanning") }
+                    }) {
+                        Text("Start Scanning")
+                    }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDialog = false }) { Text("Cancel") }
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             )
         }
@@ -96,9 +108,13 @@ fun EventItem(
     event: Event,
     onClick: () -> Unit,
     onExport: (String) -> Unit,
-    onDelete: () -> Unit // Added
+    onDelete: () -> Unit
 ) {
-    val date = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(event.createdAt))
+    val date = SimpleDateFormat(
+        "dd MMM yyyy",
+        Locale.getDefault()
+    ).format(Date(event.createdAt))
+
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -112,31 +128,71 @@ fun EventItem(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = event.name, style = MaterialTheme.typography.titleLarge)
-                Text(text = "Created: $date", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(
+                    text = "Created: $date",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
             }
 
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Options")
                 }
+
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
+
                     DropdownMenuItem(
-                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
-                        text = { Text("Export .CSV") },
-                        onClick = { onExport("csv"); showMenu = false }
+                        leadingIcon = {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                        },
+                        text = { Text("Export as .CSV") },
+                        onClick = {
+                            onExport("csv")
+                            showMenu = false
+                        }
                     )
+
                     DropdownMenuItem(
-                        text = { Text("Export .TXT") },
-                        onClick = { onExport("txt"); showMenu = false }
+                        leadingIcon = {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                        },
+                        text = { Text("Export as .TXT") },
+                        onClick = {
+                            onExport("txt")
+                            showMenu = false
+                        }
                     )
+
                     HorizontalDivider()
+
+                    // 🔴 CENTERED DELETE ITEM
                     DropdownMenuItem(
-                        text = { Text("Delete", color = Color.Red) },
+                        text = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = Color.Red
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Delete",
+                                    color = Color.Red,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        },
                         onClick = {
                             onDelete()
                             showMenu = false
