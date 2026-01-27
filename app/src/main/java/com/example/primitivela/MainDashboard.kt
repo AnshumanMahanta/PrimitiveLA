@@ -1,13 +1,17 @@
 package com.example.primitivela
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search // Guaranteed to work without extra libraries
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +30,8 @@ fun MainDashboard(
     onCreateEvent: (String) -> Unit,
     onEventClick: (Event) -> Unit,
     onExportClick: (Event, String) -> Unit,
-    onDeleteClick: (Event) -> Unit
+    onDeleteClick: (Event) -> Unit,
+    onViewRecordsClick: (Event) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var eventName by remember { mutableStateOf("") }
@@ -34,9 +39,18 @@ fun MainDashboard(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Event Attendance") },
+                title = {
+                    Text(
+                        "Primitive-LA",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            letterSpacing = 2.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = Color(0xFF121212), // Deep Matte Black
+                    titleContentColor = Color.White
                 )
             )
         },
@@ -46,7 +60,6 @@ fun MainDashboard(
             }
         }
     ) { padding ->
-
         if (events.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -57,16 +70,26 @@ fun MainDashboard(
                 Text("No events yet. Tap + to start.", color = Color.Gray)
             }
         } else {
-            LazyColumn(modifier = Modifier.padding(padding)) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                // contentPadding adds space at the top/bottom of the whole list
+                contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                // verticalArrangement adds a gap between each individual card
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(events) { event ->
                     EventItem(
                         event = event,
                         onClick = { onEventClick(event) },
                         onExport = { format -> onExportClick(event, format) },
-                        onDelete = { onDeleteClick(event) }
+                        onDelete = { onDeleteClick(event) },
+                        onView = { onViewRecordsClick(event) }
                     )
                 }
             }
+        }
         }
 
         if (showDialog) {
@@ -89,32 +112,24 @@ fun MainDashboard(
                             eventName = ""
                             showDialog = false
                         }
-                    }) {
-                        Text("Start Scanning")
-                    }
+                    }) { Text("Start Scanning") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
-                        Text("Cancel")
-                    }
+                    TextButton(onClick = { showDialog = false }) { Text("Cancel") }
                 }
             )
         }
     }
-}
 
 @Composable
 fun EventItem(
     event: Event,
     onClick: () -> Unit,
     onExport: (String) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onView: () -> Unit
 ) {
-    val date = SimpleDateFormat(
-        "dd MMM yyyy",
-        Locale.getDefault()
-    ).format(Date(event.createdAt))
-
+    val date = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(event.createdAt))
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -128,7 +143,6 @@ fun EventItem(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = event.name, style = MaterialTheme.typography.titleLarge)
                 Text(
@@ -147,22 +161,27 @@ fun EventItem(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
-
+                    // 1. VIEW OPTION (Using Search icon to fix Visibility error)
                     DropdownMenuItem(
-                        leadingIcon = {
-                            Icon(Icons.Default.Share, contentDescription = null)
-                        },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        text = { Text("View Scans") },
+                        onClick = {
+                            onView()
+                            showMenu = false
+                        }
+                    )
+
+                    // 2. EXPORT OPTIONS
+                    DropdownMenuItem(
+                        leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                         text = { Text("Export as .CSV") },
                         onClick = {
                             onExport("csv")
                             showMenu = false
                         }
                     )
-
                     DropdownMenuItem(
-                        leadingIcon = {
-                            Icon(Icons.Default.Share, contentDescription = null)
-                        },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
                         text = { Text("Export as .TXT") },
                         onClick = {
                             onExport("txt")
@@ -170,9 +189,9 @@ fun EventItem(
                         }
                     )
 
-                    HorizontalDivider()
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                    // 🔴 CENTERED DELETE ITEM
+                    // 3. DELETE OPTION
                     DropdownMenuItem(
                         text = {
                             Row(
@@ -182,15 +201,11 @@ fun EventItem(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete",
+                                    contentDescription = null,
                                     tint = Color.Red
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Delete",
-                                    color = Color.Red,
-                                    textAlign = TextAlign.Center
-                                )
+                                Text("Delete", color = Color.Red)
                             }
                         },
                         onClick = {

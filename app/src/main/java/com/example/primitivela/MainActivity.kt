@@ -12,8 +12,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
@@ -29,6 +35,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val windowInsetsController = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.isAppearanceLightStatusBars = false
 
         db = Room.databaseBuilder(
             applicationContext,
@@ -42,13 +50,15 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableIntStateOf(0) }
                 var activeEventId by remember { mutableIntStateOf(-1) }
 
+                // --- NEW STATES FOR VIEWING RECORDS ---
+                var showRecordsDialog by remember { mutableStateOf(false) }
+                var recordsToView by remember { mutableStateOf<List<AttendanceRecord>>(emptyList()) }
+                var viewingEventName by remember { mutableStateOf("") }
+
                 // 1. Permission State
                 var hasCameraPermission by remember {
                     mutableStateOf(
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.CAMERA
-                        ) == PackageManager.PERMISSION_GRANTED
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                     )
                 }
 
@@ -58,7 +68,7 @@ class MainActivity : ComponentActivity() {
                 ) { isGranted ->
                     hasCameraPermission = isGranted
                     if (!isGranted) {
-                        Toast.makeText(context, "Camera permission is required to scan", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Camera permission required to scan", Toast.LENGTH_LONG).show()
                     }
                 }
 
@@ -68,7 +78,6 @@ class MainActivity : ComponentActivity() {
                     MainDashboard(
                         events = events,
                         onCreateEvent = { name ->
-                            // Check permission before proceeding to Scanner
                             if (hasCameraPermission) {
                                 lifecycleScope.launch {
                                     val id = dao.insertEvent(Event(name = name))
@@ -80,7 +89,6 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onEventClick = { event ->
-                            // Check permission before proceeding to Scanner
                             if (hasCameraPermission) {
                                 activeEventId = event.id
                                 currentScreen = 1
@@ -103,8 +111,53 @@ class MainActivity : ComponentActivity() {
                                 dao.deleteEvent(event)
                                 Toast.makeText(this@MainActivity, "Event deleted", Toast.LENGTH_SHORT).show()
                             }
+                        },
+                        onViewRecordsClick = { event ->
+                            // --- LOGIC TO FETCH AND SHOW RECORDS ---
+                            lifecycleScope.launch {
+                                val records = dao.getRecordsForEvent(event.id)
+                                recordsToView = records
+                                viewingEventName = event.name
+                                showRecordsDialog = true
+                            }
                         }
                     )
+
+                    // --- FULLSCREEN VIEW RECORDS DIALOG ---
+                    if (showRecordsDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showRecordsDialog = false },
+                            title = { Text("Scans: $viewingEventName") },
+                            text = {
+                                Box(modifier = Modifier.heightIn(max = 450.dp)) {
+                                    if (recordsToView.isEmpty()) {
+                                        Text("No IDs scanned yet for this event.")
+                                    } else {
+                                        LazyColumn {
+                                            items(recordsToView) { record ->
+                                                Text(
+                                                    text = "• ${record.barcodeValue}",
+                                                    modifier = Modifier.padding(vertical = 4.dp),
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                // Corrected Divider for Material 3
+                                                HorizontalDivider(
+                                                    modifier = Modifier.padding(vertical = 4.dp),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                Button(onClick = { showRecordsDialog = false }) {
+                                    Text("Done")
+                                }
+                            }
+                        )
+                    }
+
                 } else {
                     ScannerScreen(
                         onIdScanned = { barcode ->
@@ -114,7 +167,6 @@ class MainActivity : ComponentActivity() {
                         },
                         onCancel = { currentScreen = 0 }
                     )
-
                     BackHandler { currentScreen = 0 }
                 }
             }
