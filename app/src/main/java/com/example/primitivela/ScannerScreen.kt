@@ -4,13 +4,17 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.*
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -33,7 +37,6 @@ fun ScannerScreen(
     var lastScannedValue by remember { mutableStateOf<String?>(null) }
     var isPaused by remember { mutableStateOf(false) }
 
-    // FORCE ML KIT TO LOOK FOR ALL BARCODE TYPES (1D IDs & QR)
     val options = remember {
         BarcodeScannerOptions.Builder()
             .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
@@ -41,8 +44,8 @@ fun ScannerScreen(
     }
     val scanner = remember { BarcodeScanning.getClient(options) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 1. Camera Viewfinder
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // 1. Camera Preview
         AndroidView(
             factory = { ctx ->
                 val previewView = PreviewView(ctx)
@@ -55,8 +58,7 @@ fun ScannerScreen(
                     }
 
                     val imageAnalysis = ImageAnalysis.Builder()
-                        // Using '1' directly fixes the "Unresolved reference" red line
-                        .setBackpressureStrategy(1)
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
 
                     imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
@@ -84,29 +86,33 @@ fun ScannerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // 2. Result Overlay (Confirmation)
+        // 2. Modern Viewfinder Overlay
+        ScannerOverlay()
+
+        // 3. Result Dialog (When Scanned)
         if (isPaused && lastScannedValue != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.7f)),
+                    .background(Color.Black.copy(alpha = 0.8f)),
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    modifier = Modifier.padding(24.dp),
-                    elevation = CardDefaults.cardElevation(8.dp)
+                    modifier = Modifier.padding(32.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.cardElevation(12.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Scanned ID:", style = MaterialTheme.typography.labelLarge)
+                        Text("Scanned Data", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                         Text(
                             text = lastScannedValue!!,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             OutlinedButton(onClick = {
                                 lastScannedValue = null
                                 isPaused = false
@@ -118,7 +124,7 @@ fun ScannerScreen(
                                 lastScannedValue = null
                                 isPaused = false
                             }) {
-                                Text("Next")
+                                Text("Accept")
                             }
                         }
                     }
@@ -126,20 +132,65 @@ fun ScannerScreen(
             }
         }
 
-        // 3. Back Button
-        IconButton(
+        // 4. Modern Back Button (Center Bottom)
+        Button(
             onClick = onCancel,
-            modifier = Modifier.padding(top = 40.dp, start = 16.dp)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 60.dp)
+                .height(56.dp)
+                .width(160.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black,
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(28.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
         ) {
-            Surface(color = Color.Black.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
-                Text(
-                    " Back ",
-                    color = Color.White,
-                    modifier = Modifier.padding(4.dp),
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            Text(
+                "BACK",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White
+            )
         }
+    }
+}
+
+@Composable
+fun ScannerOverlay() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        // Frame Brackets
+        Canvas(modifier = Modifier.size(260.dp)) {
+            val strokeWidth = 4.dp.toPx()
+            val cornerSize = 40.dp.toPx()
+            val color = Color.White
+
+            // Top Left
+            drawLine(color, Offset(0f, 0f), Offset(cornerSize, 0f), strokeWidth)
+            drawLine(color, Offset(0f, 0f), Offset(0f, cornerSize), strokeWidth)
+
+            // Top Right
+            drawLine(color, Offset(size.width, 0f), Offset(size.width - cornerSize, 0f), strokeWidth)
+            drawLine(color, Offset(size.width, 0f), Offset(size.width, cornerSize), strokeWidth)
+
+            // Bottom Left
+            drawLine(color, Offset(0f, size.height), Offset(cornerSize, size.height), strokeWidth)
+            drawLine(color, Offset(0f, size.height), Offset(0f, size.height - cornerSize), strokeWidth)
+
+            // Bottom Right
+            drawLine(color, Offset(size.width, size.height), Offset(size.width - cornerSize, size.height), strokeWidth)
+            drawLine(color, Offset(size.width, size.height), Offset(size.width, size.height - cornerSize), strokeWidth)
+        }
+
+        Text(
+            text = "Align Barcode within frame",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.align(Alignment.Center).padding(top = 320.dp)
+        )
     }
 }
 
@@ -154,8 +205,8 @@ private fun processImageProxy(
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
         scanner.process(image)
             .addOnSuccessListener { barcodes ->
-                for (barcode in barcodes) {
-                    barcode.rawValue?.let {
+                if (barcodes.isNotEmpty()) {
+                    barcodes.firstOrNull()?.rawValue?.let {
                         if (it.isNotBlank()) onResult(it)
                     }
                 }

@@ -41,23 +41,31 @@ fun MainDashboard(
     val backgroundColor = if (isDark) Color(0xFF1A1A1A) else Color.White
 
     Scaffold(
-        containerColor = backgroundColor, // Dynamically set background
+        containerColor = backgroundColor,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        "Primitive-LA",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            letterSpacing = 2.sp,
-                            fontWeight = FontWeight.ExtraBold
+            // FIXED TOP SECTION: Stays put while the list scrolls below
+            Column {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Primitive-LA",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                letterSpacing = 2.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         )
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color(0xFF121212), // Matte Black
+                        titleContentColor = Color.White
                     )
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF121212), // Matte Black Top Bar stays dark
-                    titleContentColor = Color.White
                 )
-            )
+                // THE GREY DIVIDER
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = if (isDark) Color.White.copy(alpha = 0.15f) else Color.LightGray.copy(alpha = 0.6f)
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -80,7 +88,8 @@ fun MainDashboard(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                    // contentPadding handles the space between the divider and the first item
+                    contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(events) { event ->
@@ -95,7 +104,6 @@ fun MainDashboard(
                 }
             }
 
-            // Dialog is now properly nested inside the Scaffold scope
             if (showDialog) {
                 AlertDialog(
                     onDismissRequest = { showDialog = false },
@@ -141,7 +149,7 @@ fun EventItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp) // Adjusted vertical for better list feel
+            .padding(horizontal = 12.dp, vertical = 2.dp)
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(2.dp)
     ) {

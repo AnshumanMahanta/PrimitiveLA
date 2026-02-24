@@ -50,7 +50,6 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableIntStateOf(0) }
                 var activeEventId by remember { mutableIntStateOf(-1) }
 
-                // --- NEW STATES FOR VIEWING RECORDS ---
                 var showRecordsDialog by remember { mutableStateOf(false) }
                 var recordsToView by remember { mutableStateOf<List<AttendanceRecord>>(emptyList()) }
                 var viewingEventName by remember { mutableStateOf("") }
@@ -72,12 +71,21 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // --- NEW: AUTO-ASK PERMISSION ON STARTUP ---
+                // This ensures the camera is ready before you ever start typing an event name
+                LaunchedEffect(Unit) {
+                    if (!hasCameraPermission) {
+                        permissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                }
+
                 val events by dao.getAllEvents().collectAsState(initial = emptyList())
 
                 if (currentScreen == 0) {
                     MainDashboard(
                         events = events,
                         onCreateEvent = { name ->
+                            // Now we just check the state; no popup will clear your "name"
                             if (hasCameraPermission) {
                                 lifecycleScope.launch {
                                     val id = dao.insertEvent(Event(name = name))
@@ -85,6 +93,7 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = 1
                                 }
                             } else {
+                                // Just in case they denied it, ask again
                                 permissionLauncher.launch(Manifest.permission.CAMERA)
                             }
                         },
@@ -113,7 +122,6 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onViewRecordsClick = { event ->
-                            // --- LOGIC TO FETCH AND SHOW RECORDS ---
                             lifecycleScope.launch {
                                 val records = dao.getRecordsForEvent(event.id)
                                 recordsToView = records
@@ -123,7 +131,6 @@ class MainActivity : ComponentActivity() {
                         }
                     )
 
-                    // --- FULLSCREEN VIEW RECORDS DIALOG ---
                     if (showRecordsDialog) {
                         AlertDialog(
                             onDismissRequest = { showRecordsDialog = false },
@@ -140,7 +147,6 @@ class MainActivity : ComponentActivity() {
                                                     modifier = Modifier.padding(vertical = 4.dp),
                                                     style = MaterialTheme.typography.bodyLarge
                                                 )
-                                                // Corrected Divider for Material 3
                                                 HorizontalDivider(
                                                     modifier = Modifier.padding(vertical = 4.dp),
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
@@ -174,6 +180,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Keep shareEventData as it was
 fun shareEventData(context: Context, eventName: String, records: List<AttendanceRecord>, format: String) {
     val fileName = "${eventName.replace(" ", "_")}.$format"
     val file = File(context.cacheDir, fileName)
