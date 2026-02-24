@@ -4,8 +4,6 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-
-
 android {
     namespace = "com.example.primitivela"
     compileSdk = 34
@@ -44,12 +42,11 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.4" // Matches Compose BOM
+        kotlinCompilerExtensionVersion = "1.5.4"
     }
 }
 
 dependencies {
-
     // --- CORE ---
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -61,16 +58,16 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended") // Added for extra icons
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
+    // --- PERMISSIONS ---
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+
     // --- CAMERAX ---
     val cameraxVersion = "1.3.1"
-    implementation("androidx.camera:camera-core:1.3.1")
-    implementation("androidx.camera:camera-camera2:1.3.1")
-    implementation("androidx.camera:camera-lifecycle:1.3.1")
-    implementation("androidx.camera:camera-view:1.3.1")
     implementation("androidx.camera:camera-core:${cameraxVersion}")
     implementation("androidx.camera:camera-camera2:${cameraxVersion}")
     implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
